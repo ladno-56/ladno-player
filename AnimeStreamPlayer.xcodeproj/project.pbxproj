@@ -10,9 +10,9 @@
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* StreamPlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* StreamPlayerModel.swift */; };
 		A10000000000000000000004 /* AnimeStreamProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* AnimeStreamProvider.swift */; };
-		A10000000000000000000005 /* AnimeAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* AnimeAppModel.swift */; };
-		A10000000000000000000006 /* AnimeAppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* AnimeAppViews.swift */; };
-		A10000000000000000000007 /* StreamPlayerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* StreamPlayerScreen.swift */; };
+		A10000000000000000000005 /* AnimeAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* AnimeAppModel.swift */; };
+		A10000000000000000000006 /* AnimeAppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* AnimeAppViews.swift */; };
+		A10000000000000000000007 /* StreamPlayerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* StreamPlayerScreen.swift */; };
 		A10000000000000000000008 /* AniListCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* AniListCatalogProvider.swift */; };
 /* End PBXBuildFile section */
 
