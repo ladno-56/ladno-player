@@ -18,13 +18,13 @@ jobs:
             -target AnimeStreamPlayer \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build \
+            CONFIGURATION_BUILD_DIR="$PWD/build/Release-iphoneos" \
             CODE_SIGNING_ALLOWED=NO \
             build
 
       - name: Package IPA
         run: |
-          APP_PATH="build/Build/Products/Release-iphoneos/AnimeStreamPlayer.app"
+          APP_PATH="build/Release-iphoneos/AnimeStreamPlayer.app"
           test -d "$APP_PATH"
           test -f "$APP_PATH/Info.plist"
           mkdir -p Payload
