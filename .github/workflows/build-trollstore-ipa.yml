@@ -1,0 +1,40 @@
+name: Build IPA for TrollStore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build for iPhone
+        run: |
+          xcodebuild \
+            -project AnimeStreamPlayer.xcodeproj \
+            -target AnimeStreamPlayer \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/AnimeStreamPlayer.app"
+          test -d "$APP_PATH"
+          test -f "$APP_PATH/Info.plist"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload AnimeStreamPlayer.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimeStreamPlayer-IPA
+          path: AnimeStreamPlayer.ipa
+          if-no-files-found: error
+          retention-days: 7
