@@ -93,7 +93,7 @@
 		E10000000000000000000002 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsIn parallel = 1;
+				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1600;
 			};
 			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXProject "AnimeStreamPlayer" */;
