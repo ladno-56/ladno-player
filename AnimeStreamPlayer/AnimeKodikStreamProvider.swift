@@ -105,14 +105,25 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         
         var episodes: [AnimeEpisode] = []
         for result in results {
-            // Получаем material_data (содержит seasons и эпизоды)
+            // Материал данных может содержать seasons с эпизодами
             if let matData = result["material_data"] as? [String: Any],
                let seasonsDict = matData["seasons"] as? [String: Any] {
+                
                 for (seasonKey, seasonVal) in seasonsDict {
-                    guard let seasonObj = seasonVal as? [String: Any],
-                          let episodesArr = seasonObj["episodes"] as? [[String: Any]] else { continue }
+                    // Проверяем два варианта структуры:
+                    // 1) seasonVal напрямую содержит episodes
+                    // 2) material_data.episodes внутри
+                    var epArray: [[String: Any]] = []
+                    if let seasonObj = seasonVal as? [String: Any],
+                       let directEpisodes = seasonObj["episodes"] as? [[String: Any]] {
+                        epArray = directEpisodes
+                    } else if let matData = seasonVal as? [String: Any],
+                              let innerMat = matData["material_data"] as? [String: Any],
+                              let nestedEpisodes = innerMat["episodes"] as? [[String: Any]] {
+                        epArray = nestedEpisodes
+                    }
                     
-                    for ep in episodesArr {
+                    for ep in epArray {
                         if let id = (ep["id"] as? String) ?? (ep["cvh_id"] as? String),
                            let title = (ep["name"] as? String),
                            let number = (ep["episode"] as? Int) ?? 1 {
