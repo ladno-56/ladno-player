@@ -85,29 +85,41 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do {
-            var request = URLRequest(url: URL(string: "\(baseUrl)/episodes/\(title.id)?token=\(apiToken)")!)
+            // KODIK API: material_data содержит seasons с эпизодами
+            var request = URLRequest(url: URL(string: "\(baseUrl)/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
             request.httpMethod = "POST"
             request.timeoutInterval = 30
             let (data, response) = try await client.session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
-            return parseEpisodes(data)
+            return parseEpisodesFromMaterial(data)
         } catch {
             if error is AnimeKodikStreamProviderError { throw error }
             throw AnimeKodikStreamProviderError.unavailable
         }
     }
     
-    private func parseEpisodes(_ data: Data) -> [AnimeEpisode] {
+    private func parseEpisodesFromMaterial(_ data: Data) -> [AnimeEpisode] {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let episodesArray = json["episodes"] as? [[String: Any]] else { return [] }
+              let results = json["results"] as? [[String: Any]] else { return [] }
         
         var episodes: [AnimeEpisode] = []
-        for episode in episodesArray {
-            if let id = (episode["id"] as? String),
-               let title = (episode["title"] as? String),
-               let number = (episode["number"] as? Int) ?? (episode["season_number"] as? Int) ?? 1 {
-                episodes.append(AnimeEpisode(id: id, title: title, number: number))
+        for result in results {
+            // Получаем material_data (содержит seasons и эпизоды)
+            if let matData = result["material_data"] as? [String: Any],
+               let seasonsDict = matData["seasons"] as? [String: Any] {
+                for (seasonKey, seasonVal) in seasonsDict {
+                    guard let seasonObj = seasonVal as? [String: Any],
+                          let episodesArr = seasonObj["episodes"] as? [[String: Any]] else { continue }
+                    
+                    for ep in episodesArr {
+                        if let id = (ep["id"] as? String) ?? (ep["cvh_id"] as? String),
+                           let title = (ep["name"] as? String),
+                           let number = (ep["episode"] as? Int) ?? 1 {
+                            episodes.append(AnimeEpisode(id: id, title: "Серия \(number): \(title)", number: number))
+                        }
+                    }
+                }
             }
         }
         return episodes
