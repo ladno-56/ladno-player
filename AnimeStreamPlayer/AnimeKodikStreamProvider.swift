@@ -136,7 +136,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         return episodes
     }
     
-    func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle) async throws -> ResolvedAnimeStream {
+    func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch error { if error is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
     }
