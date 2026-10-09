@@ -160,12 +160,48 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
 struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
     private let client = KodikApiClient()
     
-    func airingTitles() async throws -> [AnimeTitle] { guard let token = try? await loadToken() else { return [] }; do { let results = try await client.listAnime(token: token); return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) } } catch { return [] }
-    func searchTitles(query: String) async throws -> [AnimeTitle] { guard let token = try? await loadToken() else { return [] }; do { let results = try await client.searchAnime(query: query, token: token); return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) } } catch { return [] }
-    
-    private func loadToken() async throws -> String? { let defaults = UserDefaults.standard; guard let token = defaults.string(forKey: "kodik.token") else { let parserToken = await getKodikParserToken(); if let pt = parserToken { defaults.set(pt, forKey: "kodik.token"); return pt }; return nil }; return token }
-    
-    private func getKodikParserToken() async -> String? { do { let url = URL(string: "https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/main/kdk_tokns/tokens.json")!; let (data, _) = try await URLSession.shared.data(from: url); if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], let stableArray = json["stable"] as? [[String: Any]] { for item in stableArray where (item["functions_availability"] as? [String: Bool])?.base_search == true { if let tokn = item["tokn"] as? String, isValidToken(tokn) { return tokn } } } catch { print("KODIK: Failed to load token from TOKENS.md"); }; return nil }
+    func airingTitles() async throws -> [AnimeTitle] {
+        guard let token = try? await loadToken() else { return [] }
+        do {
+            let results = try await client.listAnime(token: token)
+            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
+        } catch {
+            return []
+        }
+    }
+
+    func searchTitles(query: String) async throws -> [AnimeTitle] {
+        guard let token = try? await loadToken() else { return [] }
+        do {
+            let results = try await client.searchAnime(query: query, token: token)
+            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
+        } catch {
+            return []
+        }
+    }
+
+    private func loadToken() async throws -> String? {
+        let defaults = UserDefaults.standard
+        guard let token = defaults.string(forKey: "kodik.token") else {
+            let parserToken = await getKodikParserToken()
+            if let pt = parserToken { defaults.set(pt, forKey: "kodik.token"); return pt }
+            return nil
+        }
+    }
+
+    private func getKodikParserToken() async -> String? {
+        do {
+            let url = URL(string: "https://raw.githubusercontent.com/YaNesyTortiK/AnimeParsers/main/kdk_tokns/tokens.json")!
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let stableArray = json["stable"] as? [[String: Any]] {
+                for item in stableArray where (item["functions_availability"] as? [String: Bool])?.base_search == true {
+                    if let tokn = item["tokn"] as? String, isValidToken(tokn) { return tokn }
+                }
+            }
+        } catch { print("KODIK: Failed to load token from TOKENS.md"); }
+        return nil
+    }
 }
 
 func decryptToken(tkn: String) -> String? { guard let p1 = Data(base64Encoded: String(tkn[..<tkn.count/2].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[tkn.count/2...].reversed())), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
