@@ -42,7 +42,7 @@ private struct KodikApiClient {
         return results.map { item -> KodikSearchResult in
             KodikSearchResult(
                 id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "",
-                originalTitle: (item["title_orig"] as? String), translationId: ((item["translation"] as? [String: Any])?["id"]) as? Int),
+                originalTitle: (item["title_orig"] as? String), translationId: ((item["translation"] as? [String: Any])["id"]; as? Int),
                 link: (item["link"] as? String), year: (item["year"] as? Int), shikimoriId: (item["shikimori_id"] as? String), imdbId: (item["imdb_id"] as? String)
             )
         }
@@ -79,7 +79,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: nil) } } catch { throw AnimeKodikStreamProviderError.unavailable }
+        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releaseEpisodeCount: (nil as Int?)) } } catch { throw AnimeKodikStreamProviderError.unavailable }
     }
     
     func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
@@ -89,12 +89,12 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
             var request = URLRequest(url: URL(string: "\(baseUrl)/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
             request.httpMethod = "POST"
             request.timeoutInterval = 30
-            let (data, response) = try await client.session.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
             return parseEpisodesFromMaterial(data)
         } catch {
-            if error is AnimeKodikStreamProviderError { throw error }
+            if error is AnimeKodikStreamProviderError { throw e }
             throw AnimeKodikStreamProviderError.unavailable
         }
     }
@@ -138,7 +138,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch error { if error is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
+        do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch error { if error is AnimeKodikStreamProviderError { throw e }; throw AnimeKodikStreamProviderError.unavailable }
     }
     
     private func resolveToken() async throws -> String? {
@@ -164,7 +164,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.listAnime(token: token)
-            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
+            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Int), voices: []) }
         } catch {
             return []
         }
@@ -174,7 +174,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.searchAnime(query: query, token: token)
-            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
+            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Int), voices: []) }
         } catch {
             return []
         }
