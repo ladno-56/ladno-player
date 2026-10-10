@@ -164,7 +164,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.listAnime(token: token)
-            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Int), voices: []) }
+            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Optional<Int>), voices: []) }
         } catch {
             return []
         }
@@ -174,7 +174,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.searchAnime(query: query, token: token)
-            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Int), voices: []) }
+            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount:(nil as Optional<Int>), voices: []) }
         } catch {
             return []
         }
