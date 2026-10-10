@@ -79,14 +79,14 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releaseEpisodeCount: (nil as Int?)) } } catch { throw AnimeKodikStreamProviderError.unavailable }
+        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releaseEpisodeCount: (.some(nil))) } } catch { throw AnimeKodikStreamProviderError.unavailable }
     }
     
     func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do {
             // KODIK API: material_data содержит seasons с эпизодами
-            var request = URLRequest(url: URL(string: "\(baseUrl)/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
+            var request = URLRequest(url: URL(string: "\((self.client.baseUrl))/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
             request.httpMethod = "POST"
             request.timeoutInterval = 30
             let (data, response) = try await URLSession.shared.data(for: request)
