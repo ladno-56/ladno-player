@@ -3,6 +3,25 @@ import SwiftUI
 
 private struct KodikApiClient {
     let baseUrl = "https://kodik-api.com"
+    
+    func listAnime(token: String) async throws -> [KodikItem] {
+        var request = URLRequest(url: URL(string: "\(baseUrl)/list?token=\(token)")!)
+        request.httpMethod = "POST"; request.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], let items = json["results"] as? [[String: Any]] else { return [] }
+        return items.map { item -> KodikItem in KodikItem(id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "", originalTitle: (item["title_orig"] as? String)) }
+    }
+    
+    func searchAnime(query: String, token: String) async throws -> [KodikItem] {
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        var request = URLRequest(url: URL(string: "\(baseUrl)/search?token=\(token)&title=\(encodedQuery)")!)
+        request.httpMethod = "POST"; request.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], let items = json["results"] as? [[String: Any]] else { return [] }
+        return items.map { item -> KodikItem in KodikItem(id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "", originalTitle: (item["title_orig"] as? String)) }
+    }
 }
 
 private struct KodikSearchResult { let id: String; let type: String; let title: String; let originalTitle: String?; let translationId: Int? }
@@ -16,24 +35,18 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: nil) } } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
+        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: "Kodik", releasedEpisodeCount: nil) } } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
     }
     
     func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do {
-            // KODIK API: material_data содержит seasons с эпизодами
             var request = URLRequest(url: URL(string: "\(client.baseUrl)/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
-            request.httpMethod = "POST"
-            request.timeoutInterval = 30
+            request.httpMethod = "POST"; request.timeoutInterval = 30
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
             return parseEpisodesFromMaterial(data)
-        } catch error {
-            if (error as! Error) is AnimeKodikStreamProviderError { throw error }
-            throw AnimeKodikStreamProviderError.unavailable
-        }
+        } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
     }
     
     private func parseEpisodesFromMaterial(_ data: Data) -> [AnimeEpisode] {
@@ -42,24 +55,18 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         
         var episodes: [AnimeEpisode] = []
         for result in results {
-            // Материал данных может содержать seasons с эпизодами
             if let matData = result["material_data"] as? [String: Any],
                let seasonsDict = matData["seasons"] as? [String: Any] {
-                
                 for seasonVal in seasonsDict.values {
-                    // Проверяем два варианта структуры:
-                    // 1) seasonVal напрямую содержит episodes
-                    // 2) material_data.episodes внутри
                     var epArray: [[String: Any]] = []
                     if let seasonObj = seasonVal as? [String: Any],
                        let directEpisodes = seasonObj["episodes"] as? [[String: Any]] {
                         epArray = directEpisodes
-                    } else if let matData = seasonVal as? [String: Any],
-                              let innerMat = matData["material_data"] as? [String: Any],
+                    } else if let matData2 = seasonVal as? [String: Any],
+                              let innerMat = matData2["material_data"] as? [String: Any],
                               let nestedEpisodes = innerMat["episodes"] as? [[String: Any]] {
                         epArray = nestedEpisodes
                     }
-                    
                     for ep in epArray {
                         if let id = (ep["id"] as? String) ?? (ep["cvh_id"] as? String),
                            let titleStr = (ep["name"] as? String),
@@ -85,7 +92,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         guard let existing = token else { return nil }; if isValidToken(existing) { return existing }; let defaults = UserDefaults.standard; guard let stored = defaults.string(forKey: "kodik.token") else { return nil }; self.token = stored; return stored
     }
     
-    private func isValidToken(_ tokn: String) -> Bool { let trimmed = tokn.trimmingCharacters(in: .whitespacesAndNewlines); guard trimmed.count > 10 else { return false }; return true }
+    private func isValidTokn(_ tokn: String) -> Bool { let trimmed = tokn.trimmingCharacters(in: .whitespacesAndNewlines); guard trimmed.count > 10 else { return false }; return true }
     
     private func getStreamUrl(token: String, titleId: String, episodeId: String) async throws -> URL {
         var request = URLRequest(url: URL(string: "https://kodik-api.com/stream?token=\(token)&title_id=\(titleId)&episode_id=\(episodeId)")!)
@@ -102,18 +109,12 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
     
     func airingTitles() async throws -> [AnimeTitle] {
         guard let token = try? await loadToken() else { return [] }
-        do {
-            let results = try await client.listAnime(token: token)
-            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
-        } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; return [] }
+        do { let results = try await client.listAnime(token: token); return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (nil as! Int), voices: []) } } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; return [] }
     }
 
     func searchTitles(query: String) async throws -> [AnimeTitle] {
         guard let token = try? await loadToken() else { return [] }
-        do {
-            let results = try await client.searchAnime(query: query, token: token)
-            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: nil, voices: []) }
-        } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; return [] }
+        do { let results = try await client.searchAnime(query: query, token: token); return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (nil as! Int), voices: []) } } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; return [] }
     }
 
     private func loadToken() async throws -> String? {
@@ -132,7 +133,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let stableArray = json["stable"] as? [[String: Any]] {
                 for item in stableArray where (item["functions_availability"] as? [String: Bool]) != nil {
-                    if let tokn = item["tokn"] as? String, isValidToken(tokn) { return tokn }
+                    if let tokn = item["tokn"] as? String, isValidTokn(tokn) { return tokn }
                 }
             }
         } catch error { print("KODIK: Failed to load token from TOKENS.md"); }
@@ -140,6 +141,6 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
     }
 }
 
-func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<String.Index(utf16Offset: half, in: tkn).reversed()])), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[(String.Index(utf16Offset: (tkn.count / 2))...)])), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
+func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<tkn.index(tkn.startIndex, offsetBy: half)].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[(tkn.index(tkn.startIndex, offsetBy: (tkn.count / 2)))...])), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
 
 enum AnimeKodikStreamProviderError: LocalizedError { case unavailable; var errorDescription: String? { "Проигрывание Kodik не настроено." } }
