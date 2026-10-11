@@ -1,88 +1,15 @@
-import Foundation
-import SwiftUI
-
-// MARK: - KODIK API Client (kodik-api.com)
-private struct KodikApiClient {
-    let baseUrl = "https://kodik-api.com"
-    private let session: URLSession
-    
-    init(session: URLSession = .shared) { self.session = session }
-    
-    func searchAnime(query: String, token: String) async throws -> [KodikSearchResult] {
-        let encodedTitle = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        var request = URLRequest(url: URL(string: "\(baseUrl)/search?token=\(token)&title=\(encodedTitle)")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
-        return try parseSearchResponse(data)
-    }
-    
-    func listAnime(token: String, page: Int = 1) async throws -> [KodikItem] {
-        var request = URLRequest(url: URL(string: "\(baseUrl)/list?token=\(token)&page=\(page)")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
-        return try parseListResponse(data)
-    }
-    
-    func getTranslations(token: String) async throws -> [Translation] {
-        var request = URLRequest(url: URL(string: "\(baseUrl)/translations?token=\(token)")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
-        return try parseTranslations(data)
-    }
-    
-    private func parseSearchResponse(_ data: Data) throws -> [KodikSearchResult] {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let results = json["results"] as? [[String: Any]] else { throw AnimeKodikStreamProviderError.unavailable }
-        return results.map { item -> KodikSearchResult in
-            KodikSearchResult(
-                id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "",
-                originalTitle: (item["title_orig"] as? String), translationId: ((item["translation"])?.map { $0.value })["id"],
-                link: (item["link"] as? String), year: (item["year"] as? Int), shikimoriId: (item["shikimori_id"] as? String), imdbId: (item["imdb_id"] as? String)
-            )
-        }
-    }
-    
-    private func parseListResponse(_ data: Data) throws -> [KodikItem] {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let results = json["results"] as? [[String: Any]] else { throw AnimeKodikStreamProviderError.unavailable }
-        return results.map(parseListItem)
-    }
-    
-    private func parseListItem(_ item: [String: Any]) -> KodikItem {
-        let translation = (item["translation"] as? [String: Any]) ?? [:]
-        return KodikItem(id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "",
-            originalTitle: (item["title_orig"] as? String), otherTitle: (item["other_title"] as? String), link: (item["link"] as? String),
-            translationId: (translation["id"] as? Int), translationName: (translation["title"] as? String), year: (item["year"] as? Int))
-    }
-    
-    private func parseTranslations(_ data: Data) throws -> [Translation] {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
-        return json.map { item in Translation(id: (item["id"] as? Int) ?? 0, title: (item["title"] as? String) ?? "", type: (item["type"] as? String) ?? "voice") }
-    }
-}
-
-private struct KodikSearchResult { let id: String; let type: String; let title: String; let originalTitle: String?; let translationId: Int?; let link: String?; let year: Int?; let shikimoriId: String?; let imdbId: String? }
-private struct KodikItem { let id: String; let type: String; let title: String; let originalTitle: String?; let otherTitle: String?; let link: String?; let translationId: Int?; let translationName: String?; let year: Int? }
-private struct Translation { let id: Int; let title: String; let type: String; var providerName: String { switch type { case "voice": return "Голосовой перевод \(title)"; case "subtitles": return "Субтитры \(title)"; default: return title } } }
-
 struct AnimeKodikStreamProvider: AnimeStreamProvider {
     private let client = KodikApiClient()
     private var token: String?
     
     init(token: String? = nil) { self.token = token }
     
-    mutating func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
+    func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: nil) } } catch { throw AnimeKodikStreamProviderError.unavailable }
+        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: nil) } } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
     }
     
-    mutating func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
+    func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do {
             // KODIK API: material_data содержит seasons с эпизодами
@@ -139,7 +66,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         return episodes
     }
     
-    mutating func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
+    func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch error { if (error as! Error) is AnimeKodikStreamProviderError { throw error }; throw AnimeKodikStreamProviderError.unavailable }
     }
