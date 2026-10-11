@@ -42,7 +42,7 @@ private struct KodikApiClient {
         return results.map { item -> KodikSearchResult in
             KodikSearchResult(
                 id: (item["id"] as? String) ?? "", type: (item["type"] as? String) ?? "anime", title: (item["title"] as? String) ?? "",
-                originalTitle: (item["title_orig"] as? String), translationId: ((item["translation"])?[\.(\.value)["id"]).map({ $0 }),
+                originalTitle: (item["title_orig"] as? String), translationId: ((item["translation"])?.map({ $0.value })["id"]).map({ $0 }),
                 link: (item["link"] as? String), year: (item["year"] as? Int), shikimoriId: (item["shikimori_id"] as? String), imdbId: (item["imdb_id"] as? String)
             )
         }
@@ -79,7 +79,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: nil) } } catch { throw AnimeKodikStreamProviderError.unavailable }
+        do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: item.translationName ?? "Kodik", releasedEpisodeCount: (nil as Optional<Int>)) } } catch { throw AnimeKodikStreamProviderError.unavailable }
     }
     
     func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
@@ -93,8 +93,8 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else { throw AnimeKodikStreamProviderError.unavailable }
             return parseEpisodesFromMaterial(data)
-        } catch error {
-            if err is AnimeKodikStreamProviderError { throw err }
+        } catch err {
+            if (err as! Error) is AnimeKodikStreamProviderError { throw err }
             throw AnimeKodikStreamProviderError.unavailable
         }
     }
@@ -142,7 +142,7 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
         guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
-        do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch error { if err is AnimeKodikStreamProviderError { throw err }; throw AnimeKodikStreamProviderError.unavailable }
+        do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch err { if (err as! Error) is AnimeKodikStreamProviderError { throw err }; throw AnimeKodikStreamProviderError.unavailable }
     }
     
     private func resolveToken() async throws -> String? {
@@ -168,7 +168,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.listAnime(token: token)
-            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (null as Int), voices: []) }
+            return results.map { item in AnimeTitle(id: item.id, title: item.title, originalTitle: item.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (nil as Optional<Int>), voices: []) }
         } catch {
             return []
         }
@@ -178,7 +178,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         guard let token = try? await loadToken() else { return [] }
         do {
             let results = try await client.searchAnime(query: query, token: token)
-            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (null as Int), voices: []) }
+            return results.map { result in AnimeTitle(id: result.id, title: result.title, originalTitle: result.originalTitle ?? "", synopsis: "", genres: [], posterURL: nil, isAiring: true, releasedEpisodeCount: (nil as Optional<Int>), voices: []) }
         } catch {
             return []
         }
@@ -203,11 +203,11 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
                     if let tokn = item["tokn"] as? String, isValidToken(tokn) { return tokn }
                 }
             }
-        } catch error { print("KODIK: Failed to load token from TOKENS.md"); }
+        } catch err { print("KODIK: Failed to load token from TOKENS.md"); }
         return nil
     }
 }
 
-func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<String.Index(half)].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[String.Index(half)...].reversed())), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
+func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<half].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[half...].reversed())), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
 
 enum AnimeKodikStreamProviderError: LocalizedError { case unavailable; var errorDescription: String? { "Проигрывание Kodik не настроено." } }
