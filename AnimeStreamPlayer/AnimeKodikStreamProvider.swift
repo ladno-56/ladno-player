@@ -1,3 +1,13 @@
+import Foundation
+import SwiftUI
+
+private struct KodikApiClient {
+    let baseUrl = "https://kodik-api.com"
+}
+
+private struct KodikSearchResult { let id: String; let type: String; let title: String; let originalTitle: String?; let translationId: Int? }
+private struct KodikItem { let id: String; let type: String; let title: String; let originalTitle: String? }
+
 struct AnimeKodikStreamProvider: AnimeStreamProvider {
     private let client = KodikApiClient()
     private var token: String?
