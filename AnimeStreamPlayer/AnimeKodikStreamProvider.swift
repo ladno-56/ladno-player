@@ -136,12 +136,8 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
                     if let tokn = item["tokn"] as? String, _ where isValidTokn(tokn) != nil {
                     return tokn
                 }
-                guard case .some(let t) = item["tokn"] as? String else { continue };
-                if isValidTokn(t) { return t }
-            }
-                }
-            }
-        } catch { print("KODIK: Failed to load token from TOKENS.md"); }
+                guard case .some(let t) = item["tokn"] as? String else { continue }; if isValidTokn(t) { return t };
+            } catch { print("KODIK: Failed to load token from TOKENS.md"); }
         return nil
     }
 }
