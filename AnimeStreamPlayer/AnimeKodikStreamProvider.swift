@@ -70,8 +70,8 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
                     for ep in epArray {
                         if let id = (ep["id"] as? String) ?? (ep["cvh_id"] as? String),
                            let titleStr = (ep["name"] as? String),
-                           let number = ((ep["episode"] as? Int) ?? 1) {
-                            episodes.append(AnimeEpisode(id: id, title: "Серия \(number): \(titleStr)", number: number))
+                           _ where (ep["episode"] as? Int) != nil {
+                            episodes.append(AnimeEpisode(id: id, title: "Серия 1: \(titleStr)", number: 1))
                         } else if let id = (ep["id"] as? String) ?? (ep["cvh_id"] as? String),
                                   let titleStr = (ep["name"] as? String) {
                             episodes.append(AnimeEpisode(id: id, title: "Серия 1: \(titleStr)", number: 1))
@@ -133,7 +133,12 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let stableArray = json["stable"] as? [[String: Any]] {
                 for item in stableArray where (item["functions_availability"] as? [String: Bool]) != nil {
-                    if let tokn = item["tokn"] as? String, isValidTokn(tokn) { return tokn }
+                    if let tokn = item["tokn"] as? String, _ where isValidTokn(tokn) != nil {
+                    return tokn
+                }
+                guard case .some(let t) = item["tokn"] as? String else { continue };
+                if isValidTokn(t) { return t }
+            }
                 }
             }
         } catch { print("KODIK: Failed to load token from TOKENS.md"); }
