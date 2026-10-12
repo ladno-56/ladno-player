@@ -132,8 +132,8 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let stableArray = json["stable"] as? [[String: Any]] {
-                for item in stableArray _where (item["functions_availability"] as? [String: Bool]) != nil {
-                    if let tokn = item["tokn"] as? String where isValidTokn(tokn) != nil {
+                for item in stableArray _ where (item["functions_availability"] as? [String: Bool]) != nil {
+                    if let tokn = item["tokn"] as? String, valid isValidTokn(tokn) != nil {
                         return tokn
                     }
                     guard case .some(let t) = item["tokn"] as? String else { continue }
