@@ -134,9 +134,10 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
                let stableArray = json["stable"] as? [[String: Any]] {
                 for item in stableArray where (item["functions_availability"] as? [String: Bool]) != nil {
                     if let tokn = item["tokn"] as? String, _ where isValidTokn(tokn) != nil {
-                    return tokn
+                        return tokn
+                    }
+                    guard case .some(let t) = item["tokn"] as? String else { continue };
                 }
-                guard case .some(let t) = item["tokn"] as? String else { continue }; if isValidTokn(t) { return t };
             } catch { print("KODIK: Failed to load token from TOKENS.md"); }
         return nil
     }
