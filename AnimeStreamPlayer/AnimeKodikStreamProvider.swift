@@ -33,13 +33,13 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
     
     init(token: String? = nil) { self.token = token }
     
-    mutating func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
-        guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
+    func streamOptions(for title: AnimeTitle) async throws -> [AnimeStreamOption] {
+        var copySelf = self; guard let apiToken = try await copySelf.resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do { let items = try await client.listAnime(token: apiToken); return items.map { item in AnimeStreamOption(id: item.id, title: item.title, providerName: "Kodik", releasedEpisodeCount: (nil as Int?) ?? 0) } } catch { throw AnimeKodikStreamProviderError.unavailable }
     }
     
-    mutating func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
-        guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
+    func episodes(for title: AnimeTitle, voice: AnimeStreamOption) async throws -> [AnimeEpisode] {
+        var copySelf = self; guard let apiToken = try await copySelf.resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do {
             var request = URLRequest(url: URL(string: "\(client.baseUrl)/search?token=\(apiToken)&shikimori_id=\(title.id)")!)
             request.httpMethod = "POST"; request.timeoutInterval = 30
@@ -83,8 +83,8 @@ struct AnimeKodikStreamProvider: AnimeStreamProvider {
         return episodes
     }
     
-    mutating func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
-        guard let apiToken = try await resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
+    func resolveStream(for episode: AnimeEpisode, in title: AnimeTitle, voice: AnimeStreamOption) async throws -> ResolvedAnimeStream {
+        var copySelf = self; guard let apiToken = try await copySelf.resolveToken() else { throw AnimeKodikStreamProviderError.unavailable }
         do { let streamURL = try await getStreamUrl(token: apiToken, titleId: title.id, episodeId: episode.id); return ResolvedAnimeStream(url: streamURL, advertisingPolicy: .providerConfirmedAdFree) } catch { throw AnimeKodikStreamProviderError.unavailable }
     }
     
