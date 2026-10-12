@@ -142,6 +142,7 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
         return nil
     }
 }
+}
 
 func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<tkn.index(tkn.startIndex, offsetBy: half)].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[(tkn.index(tkn.startIndex, offsetBy: (tkn.count / 2)))...])), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
 
