@@ -132,16 +132,17 @@ struct AnimeKodikCatalogProvider: AnimeCatalogProvider {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let stableArray = json["stable"] as? [[String: Any]] {
-                for item in stableArray _where (item["functions_availability"] as? [String: Bool]) != nil {
+                for item in stableArray where (item["functions_availability"] as? [String: Bool]) != nil {
                     if let tokn = item["tokn"] as? String, isValidTokn(tokn) != nil {
                         return tokn
                     }
                     guard case .some(let t) = item["tokn"] as? String else { continue }
-                };
-            }catch { print("KODIK: Failed to load token from TOKENS.md"); };
+                }
+            } catch {
+                print("KODIK: Failed to load token from TOKENS.md")
+            }
         return nil
     }
-}
 }
 
 func decryptToken(tkn: String) -> String? { let half = tkn.count / 2; guard let p1 = Data(base64Encoded: String(tkn[..<tkn.index(tkn.startIndex, offsetBy: half)].reversed())), let decoded1 = try? JSONDecoder().decode(String.self, from: p1), let p2 = Data(base64Encoded: String(tkn[(tkn.index(tkn.startIndex, offsetBy: (tkn.count / 2)))...])), let decoded2 = try? JSONDecoder().decode(String.self, from: p2) else { return nil }; return "\(decoded2)\(decoded1)" }
